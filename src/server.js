@@ -7,6 +7,7 @@ const app = express();
 
 app.use(express.static(path.join(__dirname)));
 app.use("/lib", express.static(path.join(__dirname, "../lib")));
+app.use(express.static(path.join(__dirname, "../node_modules")));
 app.use("/", express.static(path.join(__dirname, "index.html")));
 
 export const startServer = () => {
