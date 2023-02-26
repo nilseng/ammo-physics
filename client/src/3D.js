@@ -3,11 +3,23 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import Stats from "three/examples/jsm/libs/stats.module.js";
 import Ammo from "../lib/ammo.js";
 
+const physicsConfig = {
+  margin: 0.05,
+};
+
 const ammo = await Ammo();
 
-export function init() {
-  initGraphics();
+export function run() {
+  const { render, stats } = init();
+  animate({ render, stats });
+}
+
+function init() {
+  const { render, scene, stats } = initGraphics();
   initPhysics();
+  initObjects({ scene });
+
+  return { render, stats };
 }
 
 function initGraphics() {
@@ -15,7 +27,7 @@ function initGraphics() {
   const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.2, 2000);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color("#000");
+  scene.background = new THREE.Color("#eeeeee");
 
   camera.position.set(-14, 8, 16);
 
@@ -58,7 +70,7 @@ function initGraphics() {
 
   window.addEventListener("resize", () => onWindowResize({ renderer, camera }));
 
-  renderer.render(scene, camera);
+  return { render: () => renderer.render(scene, camera), scene, stats };
 }
 
 function initPhysics() {
@@ -70,4 +82,38 @@ function onWindowResize({ renderer, camera }) {
   camera.updateProjectionMatrix();
 
   renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function initObjects({ scene }) {
+  const ground = createGround();
+  scene.add(ground);
+}
+
+function createGround() {
+  const pos = new THREE.Vector3(0, -0.5, 0);
+  const quat = new THREE.Quaternion(0, 0, 0, 1);
+  const material = new THREE.MeshPhongMaterial({ color: 0xffffff });
+  const ground = createParalellepipedWithPhysics({ sx: 40, sy: 1, sz: 40, mass: 0, pos, quat, material });
+  ground.receiveShadow = true;
+  return ground;
+}
+
+function createParalellepipedWithPhysics({ sx, sy, sz, mass, pos, quat, material }) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz, 1, 1, 1), material);
+  const shape = new ammo.btBoxShape(new ammo.btVector3(sx * 0.5, sy * 0.5, sz * 0.5));
+  shape.setMargin(physicsConfig.margin);
+
+  createRigidBody({ mesh, physicsShape: shape, mass, pos, quat });
+
+  return mesh;
+}
+
+function createRigidBody({ mesh, physicsShape, mass, pos, quat, vel, angVel }) {
+  pos ? mesh.position.copy(pos) : (pos = mesh.position);
+}
+
+function animate({ render, stats }) {
+  requestAnimationFrame(() => animate({ render, stats }));
+  render();
+  stats.update();
 }
