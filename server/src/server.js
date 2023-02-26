@@ -5,10 +5,8 @@ const __dirname = url.fileURLToPath(new URL(".", import.meta.url));
 
 const app = express();
 
-app.use(express.static(path.join(__dirname)));
-app.use("/lib", express.static(path.join(__dirname, "../lib")));
-app.use(express.static(path.join(__dirname, "../node_modules")));
-app.use("/", express.static(path.join(__dirname, "index.html")));
+app.use(express.static(path.join(__dirname, "../../client/dist")));
+app.use("/", express.static(path.join(__dirname, "../../client/dist/index.html")));
 
 export const startServer = () => {
   const serverPromise = new Promise((resolve) => {
