@@ -16,8 +16,9 @@ export function run() {
 
 function init() {
   const { render, scene, stats } = initGraphics();
-  initPhysics();
-  initObjects({ scene });
+
+  const physicsWorld = initPhysics();
+  initObjects({ scene, physicsWorld });
 
   return { render, stats };
 }
@@ -74,7 +75,10 @@ function initGraphics() {
 }
 
 function initPhysics() {
+  const physicsWorld = new ammo.btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
   const collisionConfiguration = new ammo.btDefaultCollisionConfiguration();
+
+  return physicsWorld;
 }
 
 function onWindowResize({ renderer, camera }) {
@@ -84,18 +88,19 @@ function onWindowResize({ renderer, camera }) {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-function initObjects({ scene }) {
-  const ground = createGround();
-  scene.add(ground);
+function initObjects({ scene, physicsWorld }) {
+  const { mesh: groundMesh, body: groundBody } = createGround();
+  scene.add(groundMesh);
+  physicsWorld.addRigidBody(groundBody);
 }
 
 function createGround() {
   const pos = new THREE.Vector3(0, -0.5, 0);
   const quat = new THREE.Quaternion(0, 0, 0, 1);
   const material = new THREE.MeshPhongMaterial({ color: 0xffffff });
-  const ground = createParalellepipedWithPhysics({ sx: 40, sy: 1, sz: 40, mass: 0, pos, quat, material });
-  ground.receiveShadow = true;
-  return ground;
+  const { mesh, body } = createParalellepipedWithPhysics({ sx: 40, sy: 1, sz: 40, mass: 0, pos, quat, material });
+  mesh.receiveShadow = true;
+  return { mesh, body };
 }
 
 function createParalellepipedWithPhysics({ sx, sy, sz, mass, pos, quat, material }) {
@@ -103,13 +108,44 @@ function createParalellepipedWithPhysics({ sx, sy, sz, mass, pos, quat, material
   const shape = new ammo.btBoxShape(new ammo.btVector3(sx * 0.5, sy * 0.5, sz * 0.5));
   shape.setMargin(physicsConfig.margin);
 
-  createRigidBody({ mesh, physicsShape: shape, mass, pos, quat });
+  const body = createRigidBody({ mesh, physicsShape: shape, mass, pos, quat });
 
-  return mesh;
+  return { mesh, body };
 }
 
 function createRigidBody({ mesh, physicsShape, mass, pos, quat, vel, angVel }) {
   pos ? mesh.position.copy(pos) : (pos = mesh.position);
+  quat ? mesh.quaternion.copy(quat) : (quat = mesh.quaternion);
+
+  const transform = new ammo.btTransform();
+  transform.setIdentity();
+  transform.setOrigin(new ammo.btVector3(pos.x, pos.y, pos.z));
+  transform.setRotation(new ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
+  const motionState = new ammo.btDefaultMotionState(transform);
+
+  const localInertia = new ammo.btVector3(0, 0, 0);
+  physicsShape.calculateLocalInertia(mass, localInertia);
+
+  const rbInfo = new ammo.btRigidBodyConstructionInfo(mass, motionState, physicsShape, localInertia);
+  const body = new ammo.btRigidBody(rbInfo);
+
+  body.setFriction(0.5);
+
+  if (vel) {
+    body.setLinearVelocity(new ammo.btVector3(vel.x, vel.y, vel.z));
+  }
+
+  if (angVel) {
+    body.setAngularVelocity(new ammo.btVector3(angVel.x, angVel.y, angVel.z));
+  }
+
+  mesh.userData.physicsBody = body;
+  mesh.userData.collided = false;
+
+  // If the object has mass, it's movable and deactivation is disabled
+  if (mass > 0) body.setActivationState(4);
+
+  return body;
 }
 
 function animate({ render, stats }) {
