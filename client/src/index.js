@@ -1,3 +1,3 @@
-import { init } from "./3D";
+import { run } from "./3D";
 
-init();
+run();
