@@ -49,8 +49,6 @@ function initGraphics() {
   controls.target.set(0, 2, 0);
   controls.update();
 
-  const textureLoader = new THREE.TextureLoader();
-
   const ambientLight = new THREE.AmbientLight(0x707070);
   scene.add(ambientLight);
 
